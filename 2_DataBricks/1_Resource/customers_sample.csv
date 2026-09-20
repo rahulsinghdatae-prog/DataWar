@@ -1,0 +1,11 @@
+customer_id,first_name,last_name,email,gender,age,signup_date
+C1000,Sonal,Patel,user0@example.com,Female,,2020-03-18
+C1001,Priya,Patel,user1@example.com,Male,34,2023-05-24
+C1002,Manish,Sharma,user2@example.com,Female,64,2023-11-10
+C1003,Sonal,Patel,user3@example.com,Male,23,2020-12-30
+C1004,Sneha,Kumar,user4@example.com,Female,29,2021-10-27
+C1005,Raj,Tiwari,user5@example.com,Male,32,2021-06-09
+C1006,Manish,Tiwari,user6@example.com,Male,37,2021-11-29
+C1007,Manish,Sharma,user7@example.com,Male,,2023-08-28
+C1008,Sonal,Verma,user8@example.com,Male,64,2022-06-01
+C1009,Ravi,Sharma,user9@example.com,Male,43,2022-10-27
