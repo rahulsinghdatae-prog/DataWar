@@ -1,0 +1,26 @@
+DAG -Directed Acyclic Graph
+----------------------------------
+DAG = Directed Acyclic Graph. In Spark it's the execution plan spark builds from your transformations.
+Flow of a Spark job:
+1. Logical plan → you write filter, join, groupBy… Spark records them.
+2. Physical plan (DAG) → Spark optimizes via Catalyst, then lays out a graph of stages, each split into tasks.
+3. Wide vs narrow dependencies — this is the real point of the DAG:
+- Narrow (map, filter): each partition feeds one partition → can be pipelined into a single stage.
+- Wide (groupBy, join, distinct): requires shuffling data across partitions → boundary for a new stage.
+4. Action triggers it. Spark walks the DAG, executes stages stage-by-stage, parallelizing tasks across executors.
+Where stages/steps split is where shuffles happen — that's why the Spark UI shows the DAG with blue boxes per stage and shuffle boundaries. Big data = arrow is shallow.
+
+
+Lazy evaluation 
+----------------------------------
+Lazy evaluation means computations aren't executed until an action triggers them. In PySpark/Databricks:
+- Transformations (map, filter, select, join) are lazy — they only build a logical execution plan (a DAG), not computed data. Spark inspects your whole chain before doing any work.
+- Actions (collect(), count(), save(), show()) force execution.
+Benefits:
+- Spark optimizes the plan (e.g., predicate pushdown, reordering filters/joins).
+- Disk/memory savings — intermediate results are rarely materialized.
+Example:
+df = spark.read.csv("data.csv").filter(col("age") > 30).select("name")
+# nothing read yet — just a plan
+
+df.count()   # here Spark reads + filters + counts

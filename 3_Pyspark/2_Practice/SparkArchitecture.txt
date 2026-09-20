@@ -1,0 +1,15 @@
+PySpark's architecture is JVM-Spark + Python glued together. Key pieces:
+Processes:
+- Driver: runs your script; has 3 components — SparkContext (JVM), SparkSession, and a Py4J gateway.
+- Executors: JVMs running Spark tasks.
+- Python workers: separate Python processes started by each executor for Python-side code.
+How it works — Py4J gateway:
+- Your Python code calls spark.read... → Py4J translates the call over a socket to the JVM SparkContext.
+- The JVM builds the logical/physical plan (Catalyst optimizer) and executes it natively on the JVM — this is the fast part.
+- Python UDFs (udf, map functions) can't run on the JVM, so data is serialized to Python workers over local sockets, computed, and returned.
+Important performance consequence:
+- DataFrame/Dataset operations written in pyspark.sql get pushed down to Spark SQL and run as optimized JVM code — fast.
+- rdd.map(lambda...), udf, pandas_udf break the DAG to round-trip Python. Vectorized UDFs (pandas_udf Grouped/Apache Arrow) avoid per-row serialization.
+Execution stages:
+Python script → Py4J → SparkContext(JVM) → DAG → stages → tasks on executors (JVM)
+                                                        └── Python UDFs → executors spawn Python workers
