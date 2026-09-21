@@ -1,0 +1,199 @@
+# PySpark + Databricks Development Setup — VS Code
+====================================================
+Workspace : 3_Pyspark
+Date      : 2026-09-21
+Machine   : Windows (win32) — PowerShell 5.1
+
+This document records every change made to configure a complete PySpark
+development environment (local + Databricks) inside VS Code for the
+3_Pyspark learning workspace.
+
+------------------------------------------------------------------
+1. GOAL
+------------------------------------------------------------------
+Configure VS Code so you can:
+  - Write and RUN PySpark code 100% locally (no cloud needed) using a
+    local Spark (Java) + Python environment.
+  - Connect to your Databricks workspace from VS Code and run the same
+    Python/PySpark files on a Databricks cluster.
+
+Before this setup, you already had installed:
+  - VS Code 1.138.0 (x64)
+  - VS Code extensions: databricks.databricks (official), ms-python.python,
+    ms-toolsai.jupyter, ...
+  - Databricks CLI v1.17.0
+  - Python 3.11.9 (system)
+  - Oracle Java 25.0.3  <-- NOT compatible with PySpark (needs 8/11/17/21)
+
+------------------------------------------------------------------
+2. CHANGES MADE ON THE MACHINE
+------------------------------------------------------------------
+
+2.1 Installed a JDK (Java 17) for local Spark
+    - PySpark does NOT support Java 25 (your only JDK before this).
+    - Installed Eclipse Temurin JDK 17.0.20 (HotSpot) via winget:
+        winget install --id EclipseAdoptium.Temurin.17.JDK -e
+    - Installed to:
+        C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot
+    - Set User environment variable:
+        JAVA_HOME = C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot
+    - Prepended to User PATH:  %JAVA_HOME%\bin
+      (NOTE: your old Java 25 still exists via the Oracle javapath entry in
+       the SYSTEM PATH; PySpark ignores it because it uses JAVA_HOME.)
+
+2.2 Created a dedicated Python virtual environment
+    - Location : 3_Pyspark\.venv    (git-ignored)
+    - Interpreter : Python 3.11.9  (system Python)
+        python -m venv .venv
+    - Upgraded pip to 26.2.1.
+
+2.3 Installed Python packages (into .venv)
+        pyspark==4.2.0
+        pandas==2.3.3        (2.x — PySpark 4.x warns on pandas >=3)
+        numpy, pyarrow, matplotlib
+        jupyterlab==4.6.3 (with ipykernel, jupyter-client, notebook)
+        databricks-sdk==0.140.0
+    Command used:
+        .venv\Scripts\python.exe -m pip install pyspark pandas numpy pyarrow \
+            matplotlib jupyterlab databricks-sdk
+
+2.4 Set PySpark environment variables (User level)
+    - Why: on Windows, Spark worker sub-processes resolved the WRONG Python
+      3.14 instead of the venv's 3.11, failing every job with
+      [PYTHON_VERSION_MISMATCH].
+    - Fix — set these to point at the venv interpreter:
+        PYSPARK_PYTHON       = C:\Users\user\Desktop\DE\Projects\DataWar\3_Pyspark\.venv\Scripts\python.exe
+        PYSPARK_DRIVER_PYTHON= C:\Users\user\Desktop\DE\Projects\DataWar\3_Pyspark\.venv\Scripts\python.exe
+
+2.5 Verified local Spark end-to-end
+    - Smoke test created a SparkSession on master "local[2]", created a DF,
+      counted rows:  PASS  (Spark version: 4.2.0)
+    - First-run practice job written and executed:
+        3_Pyspark\2_Practice\00_First_Spark_Job.py
+      Reads 1_Resource\orders.csv + groupBy country/product:
+        100 rows | USA=19, Ind=17, India=11 | Mobile=22, Laptop=17
+    - Expected harmless warning (not an error):
+      "Did not find winutils.exe ... HADOOP_HOME ... unset"
+      Only needed for native Hadoop file IO on Windows; normal DataFrame
+      work is unaffected.
+
+------------------------------------------------------------------
+3. VS CODE WORKSPACE FILES CREATED (inside 3_Pyspark)
+------------------------------------------------------------------
+
+3_Pyspark/
+  .env                         KEY=VALUE config: JAVA_HOME + PYSPARK_* paths
+                               (auto-loaded by the Python extension)
+  .gitignore                   ignores .venv/ and Databricks sync folders
+  databricks.yml               Databricks bundle TEMPLATE (deploy/run later)
+  .vscode/
+    settings.json              python interpreter -> .venv; env file; format on save
+    extensions.json            recommended extensions
+    tasks.json                 "PySpark: run current file (local)"
+                               "PySpark: verify installation"
+  2_Practice/
+    00_First_Spark_Job.py      first verified PySpark script
+
+------------------------------------------------------------------
+4. DATABRICKS CONNECTION (OAuth)
+------------------------------------------------------------------
+
+4.1 Profile created    ~/.databrickscfg
+        [datawar]
+        host         = https://dbc-1dbf0377-e14f.cloud.databricks.com
+        account_id   = 0d6de18c-a3d4-4405-9a5e-68faaa368c24
+        workspace_id = 7474648853069732
+        auth_type    = databricks-cli          (OAuth U2M)
+
+    Using a clean profile name "datawar" because the old "[DEFAULT]" profile
+    still contained placeholder values (see section 6; backup saved to
+    ~/.databrickscfg.bak).
+
+4.2 Created via browser OAuth (no token ever stored in plain text):
+        databricks auth login --host "https://dbc-1dbf0377-e14f.cloud.databricks.com" --profile datawar
+    Verification:
+        databricks auth describe --profile datawar
+          Host: https://dbc-1dbf0377-e14f.cloud.databricks.com
+          User: rahulsingh.datae@gmail.com
+          Authenticated with: databricks-cli  (token in Windows OS keyring)
+
+4.3 Made "datawar" the DEFAULT profile:
+        databricks auth switch --profile datawar
+    Profile list now shows:  datawar (Default)  ->  YES valid
+
+4.4 Clusters: currently NONE exist in the workspace
+    ("databricks clusters list" = empty). To run code on Databricks from
+    VS Code you must first create a cluster in the Databricks UI:
+      Compute -> Create compute (e.g. 13.3 LTS, runtime ML or standard,
+      single node or shared) -> start it.
+    Then VS Code can target it ("run on cluster"). After creating one,
+      you may add its ID to ~/.databrickscfg:
+        cluster_id = <your-cluster-id>
+      (optional; the VS Code extension can also pick it interactively)
+
+------------------------------------------------------------------
+5. HOW TO USE IT IN VS CODE
+------------------------------------------------------------------
+
+A) LOCAL PySpark (recommended for learning):
+   1. File > Open Folder > ...\DataWar\3_Pyspark
+   2. Select the interpreter:
+      Ctrl+Shift+P > "Python: Select Interpreter" > 3_Pyspark\.venv\Scripts\python.exe
+   3. Open 2_Practice\00_First_Spark_Job.py (or any .py)
+      - Run with the Python extension (Run Python File / F5)
+      - Or Ctrl+Shift+B -> "PySpark: verify installation" (VS Code Task)
+   4. Notebooks: create a .ipynb, kernel = 3_Pyspark\.venv, and use
+      from pyspark.sql import SparkSession
+      spark = SparkSession.builder.master("local[*]").getOrCreate()
+
+B) DATABRICKS (run same file on a cluster):
+   1. Open the 3_Pyspark folder (Databricks extension already installed).
+   2. Ctrl+Shift+P > "Databricks: Configure workspace"
+      -> pick profile "datawar" -> follow prompts (needs a running cluster).
+   3. In a .py file: right-click > "Run Python File on Databricks Cluster"
+      (or the Databricks action icon). The extension syncs the file and
+      executes on your cluster; results return to VS Code.
+   4. Deploy as a job later via the bundle: edit databricks.yml (fill real
+      host), then:
+        databricks bundle validate
+        databricks bundle deploy
+        databricks bundle run pyspark_smoke_job
+
+------------------------------------------------------------------
+6. NOTES / TROUBLESHOOTING
+------------------------------------------------------------------
+- Old "[DEFAULT]" profile still has placeholders (host/token/cluster_id).
+  It is no longer the default. You can delete that section from
+  ~/.databrickscfg or overwrite it with your real host via:
+      databricks auth login --host <real-host> --profile DEFAULT
+  (Backup of the original file: ~/.databrickscfg.bak)
+- OAuth access tokens auto-expire (~1 h); the CLI refreshes them using the
+  saved refresh token in the OS keyring. If you see auth errors, re-run:
+      databricks auth login --profile datawar
+- "databricks bundle validate" currently ends with
+  "Missing required cluster ... Specify one of ... existing_cluster_id".
+  This is EXPECTED until you create compute (section 4.4). The validation run
+  already proves the connection works (it resolves your workspace + user).
+  See also the HOW-TO comments inside databricks.yml.
+- JAVA_HOME: keep pointing at the JDK 17 folder. Spark 4.x runs on
+  Java 8/11/17/21 — do NOT switch to Java 25.
+- pandas: use 2.x here (3.x triggers a PySpark FutureWarning and some
+  features behave differently).
+- Jupyter kernel "Python (.venv)" is selected by picking the venv for new
+  notebooks or via "Jupyter: Select Interpreter to Start Kernel".
+- "winutils.exe" warning is benign on Windows (documented above).
+- VS Code "Databricks" runs need an internet connection to the workspace
+  (OAuth + cluster). Local PySpark runs do NOT need internet.
+
+------------------------------------------------------------------
+7. QUICK COMMAND CHEAT-SHEET
+------------------------------------------------------------------
+  # Start local Jupyter Lab
+  .venv\Scripts\python.exe -m jupyter lab
+
+  # Run a PySpark script locally
+  .venv\Scripts\python.exe 2_Practice\00_First_Spark_Job.py
+
+  # Databricks status
+  databricks auth describe --profile datawar
+  databricks clusters list

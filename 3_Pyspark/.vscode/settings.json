@@ -1,0 +1,11 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.envFile": "${workspaceFolder}/.env",
+    "jupyter.notebookFileRoot": "${workspaceFolder}",
+    "editor.formatOnSave": true,
+    "files.exclude": {
+        ".venv": true
+    },
+    "databricks.experimental.enableRefactorUnsafeValues": true
+}

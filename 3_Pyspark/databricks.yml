@@ -1,0 +1,35 @@
+# Databricks bundle for 3_Pyspark
+# Docs: https://docs.databricks.com/tags/dev-tools-index.html (bundles)
+#
+# Uses the "datawar" CLI profile (~/.databrickscfg). Validate/deploy/run with:
+#   databricks bundle validate
+#   databricks bundle deploy        (or: databricks bundle run smoke_job)
+bundle:
+  name: pyspark_workspace
+
+# targets
+targets:
+  default:
+    workspace:
+      host: https://dbc-1dbf0377-e14f.cloud.databricks.com
+      profile: datawar
+    resources:
+      jobs:
+        pyspark_smoke_job:
+          name: datawar-pyspark-smoke
+          # IMPORTANT: add a cluster once one exists in the workspace.
+          # Either reference it here:
+          #   existing_cluster_id: <your-cluster-id>
+          # or define one inline:
+          #   job_clusters:
+          #     - job_cluster_key: smoke_cluster
+          #       new_cluster:
+          #         spark_version: 13.3.x-scala2.12
+          #         node_type_id: <your-node-type>
+          #   tasks:
+          #     - task_key: pyspark_smoke
+          #       job_cluster_key: smoke_cluster
+          tasks:
+            - task_key: pyspark_smoke
+              spark_python_task:
+                python_file: ./2_Practice/00_First_Spark_Job.py

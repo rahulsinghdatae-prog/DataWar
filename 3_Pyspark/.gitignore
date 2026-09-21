@@ -1,0 +1,6 @@
+# Python virtual environment for this workspace
+.venv/
+
+# Databricks sync / bundle artifacts
+.databricks/
+.project/
