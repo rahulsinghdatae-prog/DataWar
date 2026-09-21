@@ -1,0 +1,99 @@
+================================================================================
+LOG: PUT train.csv -> @%TAXI_DRIVE_SMALL_FILES  (full step-by-step)
+Mandatory log file  : C:\Users\user\Desktop\DE\Projects\DataWar\1_SnowFlake\2_Practice\LoadStepOfTaxi.txt
+Date                : 2026-09-22
+================================================================================
+
+--------------------------------------------------------------------------------
+CONFIG CHECK (already in place from previous session)
+--------------------------------------------------------------------------------
+1. snow CLI location (snowflake-cli 3.27.0, from project venv):
+        C:\Users\user\Desktop\DE\Projects\DataWar\.venv\Scripts\snow.exe
+
+2. Connection file used by snow CLI 3.x:
+        C:\Users\user\.snowflake\connections.toml
+   - Has [default] block with:
+        account    = GKMZJDJ-RB91367
+        user       = RAHULSINGH
+        password   = (stored locally)
+        warehouse  = COMPUTE_WH
+        database   = RAHUL_DB
+        schema     = PUBLIC
+
+3. Legacy config file (also present, kept for reference):
+        C:\Users\user\.snowflake\config.toml
+   - [connections.default] with same values above.
+
+4. NOTE: snow showed a harmless UserWarning
+   "Encoding mismatch detected. Run 'snow helpers detect-encoding'".
+   This does NOT block execution; results below are valid.
+
+--------------------------------------------------------------------------------
+STEP 1 - VERIFY CONNECTION (ran via snow CLI)
+--------------------------------------------------------------------------------
+COMMAND:
+    snow sql --query "SELECT CURRENT_VERSION(), CURRENT_WAREHOUSE(), CURRENT_DATABASE(), CURRENT_SCHEMA();"
+RESULT:
+    CURRENT_VERSION() | CURRENT_WAREHOUSE() | CURRENT_DATABASE() | CURRENT_SCHEMA()
+    10.34.101         | COMPUTE_WH          | RAHUL_DB           | PUBLIC
+=> CONNECTION OK.
+
+--------------------------------------------------------------------------------
+STEP 2 - CHECK TABLE + STAGE
+--------------------------------------------------------------------------------
+COMMAND:
+    snow sql --query "SHOW TABLES LIKE 'TAXI_DRIVE_SMALL_FILES' IN RAHUL_DB.PUBLIC; LIST @%TAXI_DRIVE_SMALL_FILES;"
+RESULT (table):
+    name = TAXI_DRIVE_SMALL_FILES | database = RAHUL_DB | schema = PUBLIC
+    kind = TRANSIENT | rows = 100 | owner = ACCOUNTADMIN    -> TABLE EXISTS.
+
+RESULT (stage before PUT) - only the old small file was present:
+    name                 | size   | md5
+    train_100_record.csv | 88288  | fe0b4f08cf2f38162e3d76fcdefb0978
+
+--------------------------------------------------------------------------------
+STEP 3 - RUN THE REQUESTED PUT COMMAND
+--------------------------------------------------------------------------------
+COMMAND:
+    snow sql --query "PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train.csv' @%TAXI_DRIVE_SMALL_FILES;"
+
+SOURCE FILE (local):
+    C:\Users\user\Desktop\DE\Projects\DataWar\1_SnowFlake\5_Data\archive\train.csv
+    size = 1,942,848,724 bytes (~1.9 GB)
+
+RESULT - STATUS = UPLOADED (auto-compressed to GZIP by default):
+    source    | target       | source_size | target_size | source_comp | target_comp | status
+    train.csv | train.csv.gz | 1942848724  | 525206768   | NONE        | GZIP        | UPLOADED
+
+--------------------------------------------------------------------------------
+STEP 4 - VERIFY FILE IN STAGE
+--------------------------------------------------------------------------------
+COMMAND:
+    snow sql --query "LIST @%TAXI_DRIVE_SMALL_FILES;"
+RESULT:
+    name                 | size      | md5                                      | last_modified
+    train.csv.gz         | 525206768 | a82c4f96881a77c503202d2163cf6433-63       | Mon, 21 Sep 2026 22:18:48 GMT
+    train_100_record.csv | 88288     | fe0b4f08cf2f38162e3d76fcdefb0978          | Mon, 21 Sep 2026 03:11:20 GMT
+=> train.csv IS NOW ON THE STAGE @%TAXI_DRIVE_SMALL_FILES  (as train.csv.gz).
+
+--------------------------------------------------------------------------------
+STEP 5 - CONFIG / SCRIPTS SAVED UNDER 1_SnowFlake
+--------------------------------------------------------------------------------
+- Reusable SQL for upload + verify  : 1_SnowFlake\2_Practice\train_upload.sql
+- Working COPY statement            : 1_SnowFlake\2_Practice\copy_load.sql
+- This mandatory log                : 1_SnowFlake\2_Practice\LoadStepOfTaxi.txt
+- Connection is NOT committed here (secrets stay in C:\Users\user\.snowflake\).
+
+--------------------------------------------------------------------------------
+STEP 6 - NEXT OPTIONAL STEP (only if asked)
+--------------------------------------------------------------------------------
+Load the uploaded train.csv.gz into the table, e.g.:
+    COPY INTO RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES
+    FROM @%TAXI_DRIVE_SMALL_FILES/train.csv.gz
+    FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"' NULL_IF=('','NULL','null'))
+    ON_ERROR='CONTINUE';
+
+================================================================================
+STATUS SUMMARY: PUT executed, status UPLOADED, file verified in stage with LIST.
+Task did NOT include COPY INTO, so table was left untouched (100 rows remains).
+================================================================================
