@@ -1,0 +1,8 @@
+# Python virtual environments
+.venv/
+.venv-1/
+
+# Large data / archive files
+*.zip
+*.csv
+1_SnowFlake/5_Data/archive/

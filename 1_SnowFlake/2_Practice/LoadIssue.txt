@@ -1,0 +1,193 @@
+================================================================================
+ISSUE: PUT command fails in PowerShell with "Unrecognized token in source text"
+File   : C:\Users\user\Desktop\DE\Projects\DataWar\1_SnowFlake\2_Practice\LoadIssue.txt
+================================================================================
+
+--------------------------------------------------------------------------------
+STEP 1 - THE ERROR (copy of the failure)
+--------------------------------------------------------------------------------
+    PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES;
+    At line:1 char:105
+    + ... train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES;
+    +                         ~
+    Unrecognized token in source text.
+        + CategoryInfo          : ParserError: (:) [], ParentContainsRecordException
+        + FullyQualifiedErrorId : UnrecognizedToken
+
+--------------------------------------------------------------------------------
+STEP 2 - WHY IT HAPPENS (Root Cause)
+--------------------------------------------------------------------------------
+1. `PUT ... @%TAXI_DRIVE_SMALL_FILES` is a SNOWFLAKE SQL statement. It only
+   works inside a Snowflake client (Snowsight worksheet, snowsql, snow CLI,
+   snowflake-connector-python).
+
+2. The command above was pasted straight into PowerShell. PowerShell is NOT a
+   Snowflake client, so it tried to parse the line as PowerShell code.
+
+3. In PowerShell the `@` character is special:
+       @  = an array literal, splatting operator, or start of a here-string.
+   The sequence `@%TAXI_DRIVE_SMALL_FILES` is not valid PowerShell, so the
+   parser threw  "Unrecognized token in source text."  at the `@` character
+   (char 105).
+
+   -> The SQL itself is fine. It is the SHELL that does not understand it.
+
+--------------------------------------------------------------------------------
+STEP 3 - HOW TO FIX IT (correct ways to run the PUT)
+--------------------------------------------------------------------------------
+This machine has snowflake-cli (`snow`) installed in the virtual environment:
+    C:\Users\user\Desktop\DE\Projects\DataWar\.venv\Scripts\snow.exe  (v3.27.0)
+
+Option A (RECOMMENDED) - run the SQL with the `snow` CLI
+    A1. Activate the virtual environment:
+            C:\Users\user\Desktop\DE\Projects\DataWar\.venv\Scripts\Activate.ps1
+
+    A2. Create the connection config file (once):
+        Path: C:\Users\user\.snowflake\config.toml
+        Content (put your real values):
+            [connections.default]
+            account     = "YOUR_ACCOUNT_ID"        # e.g. xy12345.us-east-1
+            user        = "YOUR_USER"
+            password    = "YOUR_PASSWORD"           # or use sso / private_key_path
+            database    = "RAHUL_DB"
+            schema      = "PUBLIC"
+            warehouse   = "COMPUTE_WH"
+
+    A3. Run the PUT with the full SQL in a double-quoted string
+        (the `@` is safe inside PowerShell double quotes):
+            snow sql --query "PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES;"
+
+    A4. Expected output: a result set with  file: train_100_record.csv,
+        status: UPLOADED.
+
+    A5. Then load it into the table:
+            snow sql --query "COPY INTO RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES FROM @%TAXI_DRIVE_SMALL_FILES FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='\"') ON_ERROR='CONTINUE';"
+
+Option B - run a whole .sql file with the snow CLI
+          (the load.sql file can be run this way instead of pasting line by line):
+            snow sql --filename C:\Users\user\Desktop\DE\Projects\DataWar\1_SnowFlake\2_Practice\load.sql
+
+Option C - run it inside a Snowflake worksheet (Snowsight web UI)
+           Just paste the PUT there; it works because the UI is a real
+           Snowflake SQL client.
+
+Option D - run it with Python (snowflake-connector-python, already installed):
+            python -c "import snowflake.connector; con=snowflake.connector.connect(...); con.cursor().execute(\"PUT 'file:///...' @%TAXI_DRIVE_SMALL_FILES\")"
+
+--------------------------------------------------------------------------------
+STEP 4 - EXTRA NOTES ABOUT THE load.sql FILE
+--------------------------------------------------------------------------------
+1. Use the CORRECT file name (singular "record", matches the actual file):
+       PUT 'file:///C:/.../train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES;
+   The second PUT in load.sql references train_100_records.csv (plural) which
+   does NOT exist -> it will fail. Use the singular name or fix the file name.
+
+2. `@%TAXI_DRIVE_SMALL_FILES` is the TABLE STAGE of table
+   RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES. The `%` prefix means "stage created
+   automatically for this table". You must be in (or fully-qualify)
+   RAHUL_DB.PUBLIC for the unqualified `@%TAXI_DRIVE_SMALL_FILES` to resolve.
+
+3. "Query result expired" errors on PUT are transient - re-run the PUT after:
+       ALTER WAREHOUSE COMPUTE_WH RESUME;
+       ALTER SESSION SET USE_CACHED_RESULT = FALSE;
+
+================================================================================
+SUMMARY: The error is not in your SQL. It happened because you typed a
+Snowflake SQL statement into a PowerShell prompt. Send the SQL to Snowflake
+through a Snowflake client (snow CLI / snowsql / worksheet / Python)
+and the same statement runs without error.
+================================================================================
+
+--------------------------------------------------------------------------------
+STEP 5 - WHAT I NEED FROM YOU TO COMPLETE THE LOAD (check "loaded?" question)
+--------------------------------------------------------------------------------
+To check whether the file was actually loaded and finish the load for you,
+I need these values (confirm or correct each one):
+
+  1. account  = ________________________________   # e.g. xy12345.us-east-1
+  2. user     = ________________________________   # your Snowflake login
+  3. password = ________________________________   # or SSO / key-pair auth
+  4. warehouse = ______________ (default COMPUTE_WH)
+  5. database  = ______________ (default RAHUL_DB)
+  6. schema    = ______________ (default PUBLIC)
+  7. Confirm the local file exists:
+        C:\Users\user\Desktop\DE\Projects\DataWar\1_SnowFlake\5_Data\archive\train_100_record.csv
+  8. Confirm the target table:
+        RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES  -> stage @%TAXI_DRIVE_SMALL_FILES
+
+Once you give me items 1-3 (and 4-6 if differs from defaults), I will:
+
+  a. Create C:\Users\user\.snowflake\config.toml with those values.
+  b. Run:  snow sql --query "LIST @%TAXI_DRIVE_SMALL_FILES;"   -> to check if the
+     file already reached the stage.
+  c. If not uploaded:
+     snow sql --query "PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES AUTO_COMPRESS=FALSE;"
+  d. Run LIST again to confirm status = UPLOADED (this answers "is it loaded?").
+  e. Copy into the table:
+     snow sql --query "COPY INTO RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES FROM @%TAXI_DRIVE_SMALL_FILES FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='\"' EMPTY_FIELD_AS_NULL=TRUE) ON_ERROR='CONTINUE';"
+  f. Verify row count:
+     snow sql --query "SELECT COUNT(*) AS ROWS_LOADED FROM RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES;"
+
+NOTE: the POLYLINE column is JSON text in the CSV; if COPY fails on it, add
+PARSE_HEADER or use FORCE=TRUE and inspect COPY_HISTORY first.
+
+--------------------------------------------------------------------------------
+CURRENT STATUS (as of last check)
+--------------------------------------------------------------------------------
+- ~/.snowflake/config.toml : NOT CREATED YET  -> the snow CLI cannot connect yet.
+- File exists locally      : Yes (train_100_record.csv present in 5_Data\archive).
+- Is it loaded?            : UNKNOWN until the config exists and LIST is run.
+
+--------------------------------------------------------------------------------
+STEP 6 - STATUS AFTER PROVIDING CREDENTIALS + FULL LOAD COMPLETED (2026-09-21)
+--------------------------------------------------------------------------------
+1. CONFIG FIXED - snowflake-cli 3.x reads C:\Users\user\.snowflake\connections.toml
+   (NOT config.toml). The old config.toml had an OAUTH entry only. I added a
+   password connection block:
+
+       [default]
+       account = "GKMZJDJ-RB91367"
+       user = "RAHULSINGH"
+       password = "<REPLACE_WITH_YOUR_PASSWORD>"   # NEVER commit real credentials
+       warehouse = "COMPUTE_WH"
+       database = "RAHUL_DB"
+       schema = "PUBLIC"
+
+2. CONNECTION VERIFIED:
+       SELECT CURRENT_VERSION(), CURRENT_WAREHOUSE(), CURRENT_DATABASE(), CURRENT_SCHEMA();
+       -> 10.33.101 | COMPUTE_WH | RAHUL_DB | PUBLIC
+
+3. CHECK BEFORE LOAD:
+       LIST @%TAXI_DRIVE_SMALL_FILES;   -> "No data"   (file was NOT in stage yet)
+
+4. UPLOAD (PUT) - SUCCESS:
+       PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES AUTO_COMPRESS=FALSE;
+       -> status UPLOADED (source_size 88276)
+
+5. VERIFY IN STAGE:
+       LIST @%TAXI_DRIVE_SMALL_FILES;
+       -> train_100_record.csv | 88288 | fe0b4f08cf2f38162e3d76fcdefb0978
+
+6. COPY INTO TABLE - FIRST ATTEMPT FAILED (then fixed):
+       COPY INTO ... FROM @%TAXI_DRIVE_SMALL_FILES
+       FILE_FORMAT=(TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"' EMPTY_FIELD_AS_NULL=TRUE);
+       -> LOAD_FAILED: Numeric value '' is not recognized ... column ORIGIN_CALL (100 errors)
+       CAUSE: empty fields are quoted "" in the CSV, and FIELD_OPTIONALLY_ENCLOSED_BY
+              turns "" into an empty STRING, not NULL -> NUMBER columns reject it.
+       FIX  : add NULL_IF=('','NULL','null') to the FILE_FORMAT.
+
+       FINAL WORKING STATEMENT (saved in copy_load.sql):
+         COPY INTO RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES
+         FROM @%TAXI_DRIVE_SMALL_FILES
+         FILE_FORMAT = (TYPE=CSV SKIP_HEADER=1 FIELD_OPTIONALLY_ENCLOSED_BY='"' NULL_IF=('','NULL','null') EMPTY_FIELD_AS_NULL=TRUE)
+         ON_ERROR = 'CONTINUE';
+       -> LOADED | 100 rows parsed | 100 rows loaded | 0 errors
+
+7. FINAL ANSWER - "IS IT LOADED?" :  YES  (the task is DONE)
+       SELECT COUNT(*) AS ROWS_LOADED FROM RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES;
+       -> 100
+
+NOTE: copy_load.sql (this folder) contains the working COPY statement.
+      Command used below was run with the snow CLI:
+      snow sql --filename C:\Users\user\Desktop\DE\Projects\DataWar\1_SnowFlake\2_Practice\copy_load.sql
+================================================================================

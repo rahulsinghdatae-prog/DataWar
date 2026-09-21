@@ -1,0 +1,24 @@
+Create or replace database rahul_db;
+
+create or replace TRANSIENT TABLE RAHUL_DB.PUBLIC.TAXI_DRIVE_SMALL_FILES (
+	TRIP_ID NUMBER(38,0),
+	CALL_TYPE VARCHAR(2),
+	ORIGIN_CALL NUMBER(38,0),
+	ORIGIN_STAND NUMBER(38,0),
+	TAXI_ID NUMBER(38,0),
+	TIMESTAMP NUMBER(38,0),
+	DAY_TYPE VARCHAR(1),
+	MISSING_DATA BOOLEAN,
+	POLYLINE ARRAY
+);
+
+LIST @%TAXI_DRIVE_SMALL_FILES;
+
+ALTER WAREHOUSE COMPUTE_WH RESUME;
+
+ALTER SESSION SET USE_CACHED_RESULT = FALSE;
+
+PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES;
+
+
+ "PUT 'file:///C:/Users/user/Desktop/DE/Projects/DataWar/1_SnowFlake/5_Data/archive/train_100_record.csv' @%TAXI_DRIVE_SMALL_FILES;"
