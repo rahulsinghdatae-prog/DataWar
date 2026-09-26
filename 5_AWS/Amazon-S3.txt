@@ -1,4 +1,4 @@
-What is Amazon S3?
+What is Amazon S3
 ------------------
 Amazon Simple Storage Service (Amazon S3) is an object storage service that offers industryleading scalability, data availability, security, and performance.
 Customers of all sizes and
@@ -55,13 +55,15 @@ Storage logging and monitoring
 	Amazon S3 provides logging and monitoring tools that you can use to monitor and control how
 	your Amazon S3 resources are being used.
 	Automated monitoring tools
-		Amazon CloudWatch metrics for Amazon S3  -  Track the operational health of your S3 resources and configure billing alerts when estimated charges reach a user-defined threshold
-		AWS CloudTrail - Record actions taken by a user, a role, or an AWS service in Amazon S3
+		->Amazon CloudWatch metrics for Amazon S3  -  Track the operational health of your S3 resources and configure billing alerts when estimated charges reach a user-defined threshold
+		->AWS CloudTrail - Record actions taken by a user, a role, or an AWS service in Amazon S3
 	Manual monitoring tools
-		Server access logging 
-		AWS Trusted Advisor 
+		->Server access logging 
+		->AWS Trusted Advisor 
 Analytics and insights
 ----------------------
+Strong consistency
+------------------
 
 	
 	
