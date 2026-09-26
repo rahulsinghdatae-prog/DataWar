@@ -1,0 +1,1 @@
+s3://semistructdata067/twitter_data/twitter_sample.json
