@@ -1,0 +1,18 @@
+AWS-CLI Installation (Windows / PowerShell)
+-------------------------------------------
+NOTE   :    Run inside PowerShell (not CMD). If the script is blocked by policy,
+               first run:  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+Step 1 :    Open PowerShell
+               # Windows Search -> type "PowerShell" -> "Windows PowerShell"
+
+Step 2 :    irm 'https://awscli.amazonaws.com/v2/install.ps1' | iex      # irm = download script, iex = run it (AWS CLI v2)
+               # irm  = Invoke-RestMethod  -> fetches the install script into memory
+               # iex  = Invoke-Expression -> executes the script that was just piped in
+               # "|"   = pipe: output of the download becomes the input of the runner
+               # NOTE : run as your normal user, admin rights are not required
+
+Step 3 :    aws --version                                                # confirm the install and see the version
+               # expected output e.g. "aws-cli/2.x.x Python/3.x Windows/amd64"
+               # after this, restart PowerShell so PATH picks up the new aws.exe
+               # then run "aws configure" (see aws-cli-hands-on.txt) before any S3 command

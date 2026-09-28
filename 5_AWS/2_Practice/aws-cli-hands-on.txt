@@ -1,0 +1,130 @@
+================================================================================================
+ AWS CLI v2  -  HANDS-ON CHEAT SHEET
+ Target bucket used in the examples : s3://amz-s3-data-snow-ap-thailand
+================================================================================================
+
+ COMMAND ANATOMY
+   aws <service> <operation> [arguments] [--flags]
+
+     service     short code for an AWS product ................ s3, iam, ec2, sts
+     operation   the API action to perform ..................... ls, cp, sync, mv, rm
+     arguments   paths, keys, filters
+     --flags     optional modifiers .......................... --recursive, --dryrun, --exclude
+
+ NOTATION
+   # ............................  inline comment explaining the line below it
+   -> ...........................  sub-item belonging to the list above
+   C:/... ........................  Windows local path (quote it if it contains spaces)
+   s3://bucket/key/ ..............  S3 URI; the trailing "/" means "inside this folder"
+
+ SAFETY RULES
+   1. aws sts get-caller-identity ...... confirm which account you are in BEFORE any write
+   2. --dryrun ........................ add to cp / mv / sync / rm to preview, changes nothing
+   3. rm --recursive ................... permanent - a deleted object cannot be recovered
+   4. sync --delete ................... removes destination files that do not exist at the source
+   5. "quotes" ......................... always required for paths containing spaces
+
+
+================================================================================================
+ 1. GENERAL / INSPECT COMMANDS
+================================================================================================
+
+aws s3 ls                                     # list all S3 buckets in the account
+aws iam list-users                            # list all IAM users
+aws configure                                 # interactive: set keys, region, default output
+                                              #   stored in %USERPROFILE%\.aws\credentials (secrets)
+                                              #   and        %USERPROFILE%\.aws\config      (region/format)
+aws sts get-caller-identity                   # who am I / which account am I operating on
+                                              #   -> run this first on every session, it is the
+                                              #      cheapest way to catch a wrong account/profile
+aws ec2 describe-instances                    # list EC2 instances
+aws s3 ls s3://amz-s3-data-snow-ap-thailand   # list objects/folders inside one bucket
+
+ USEFUL EXTRAS
+aws s3 ls s3://amz-s3-data-snow-ap-thailand --recursive --human-readable   # every object + readable size
+aws s3api list-buckets --query 'Buckets[].Name' --output table             # bucket names only, in a table
+aws configure list-profiles                                                  # see which profiles exist
+aws s3 help                                                                # built-in help for any command
+
+ TWO PROFILES AT ONCE  (--profile switches credentials without reconfiguring)
+aws s3 ls --profile prod                       # act as the "prod" profile
+aws s3 ls --profile dev                        # act as the "dev"  profile
+                                              # WARNING: no --profile = silently uses the default
+
+
+================================================================================================
+ 2. LOCAL  ->  S3     (upload / move / download)
+================================================================================================
+ cp    = copy  (source is left untouched)
+ mv    = move  (source is deleted after the copy succeeds)
+ sync  = mirror a folder (only the differences are transferred)
+ --recursive = include every file and sub-folder
+
+aws s3 cp C:/Users/user/Desktop/DE/DummyDataFolder/order.csv s3://amz-s3-data-snow-ap-thailand/raw/orders/    # upload 1 file
+aws s3 sync C:/Users/user/Desktop/DE/DummyDataFolder/ s3://amz-s3-data-snow-ap-thailand/raw/orders/          # upload whole folder
+aws s3 rm "s3://amz-s3-data-snow-ap-thailand/raw/orders/order - Copy - Copy.csv"                                 # delete 1 object in S3
+aws s3 mv C:/Users/user/Desktop/DE/DummyDataFolder/ s3://amz-s3-data-snow-ap-thailand/raw/orders/ --recursive  # move folder up (local removed)
+aws s3 cp s3://amz-s3-data-snow-ap-thailand/raw/orders/ C:/Users/user/Desktop/DE/DummyDataFolder/ --recursive  # download folder to local
+
+ THE TRAILING SLASH IS NOT OPTIONAL
+   s3://bucket/raw/orders/     -> the object is created INSIDE the "raw/orders" folder
+   s3://bucket/raw/orders      -> an object literally NAMED "orders" is created in "raw"
+   Always point at a key that ends in "/" when the destination is meant to be a folder.
+
+ COMMON FLAGS
+   --no-progress ........................ hide the progress bar (cleaner logs and screenshots)
+   --only-show-errors ................. print errors only, suppress the success output
+   --exclude "*.tmp" ................... skip matching files during cp / sync / mv --recursive
+   --exclude "*_test.csv" ............. flags can be repeated to exclude several patterns
+   --storage-class STANDARD_IA ........ cheaper storage, but a per-GB retrieval fee applies
+   --sse AES256 ....................... server-side encryption applied to the uploaded object
+   --acl private ...................... only the owner can read the object
+   --dryrun ........................... show what would happen, transfer nothing
+
+ sync  vs  cp --recursive
+   sync  compares size + last-modified and skips anything already identical -> safe to re-run
+   cp    re-copies every file, even unchanged ones -> slower, but forces a refresh
+
+ WHY mv IS THE RISKIEST OF THE THREE
+   mv = copy + delete. A run that is interrupted between the two steps leaves files in BOTH
+   locations. On a cross-account move the copy can succeed while the delete fails, silently
+   duplicating data. Prefer cp, verify, then rm.
+
+
+================================================================================================
+ 3. S3  ->  S3     (same account, no download to the PC in between)
+================================================================================================
+ Server-side copy: the bytes never travel through your machine, so it is faster and avoids
+ egress to and from your PC. Same-region copies are not billed for data transfer.
+
+aws s3 cp s3://amz-s3-data-snow-ap-thailand/raw/orders/order.csv s3://amz-s3-data-snow-ap-thailand/raw/temp-order/    # copy 1 object to another folder
+aws s3 sync s3://amz-s3-data-snow-ap-thailand/raw/orders/ s3://amz-s3-data-snow-ap-thailand/raw/temp-order/          # sync folder to folder
+aws s3 rm "s3://amz-s3-data-snow-ap-thailand/raw/temp-order" --recursive                                           # delete folder + contents
+aws s3 mv "s3://amz-s3-data-snow-ap-thailand/raw/orders/" "s3://amz-s3-data-snow-ap-thailand/raw/temp-order/" --recursive    # rename / move a folder
+aws s3 cp "s3://amz-s3-data-snow-ap-thailand/raw/temp-order/" "s3://amz-s3-data-snow-ap-thailand/raw/orders/" --recursive     # copy folder back
+
+ SYNC IS DESTINATION-DRIVING
+   Files missing at the destination are copied over.
+   Files that exist ONLY at the source are NOT removed. To mirror exactly, add --delete:
+
+     aws s3 sync <source>/ <destination>/ --delete      # DANGEROUS - wipes extra destination files
+
+   Always dry-run first:  aws s3 sync <source>/ <destination>/ --delete --dryrun
+
+ "PREFIX" AND "FOLDERS"
+   S3 has no real directory structure - only keys (full paths). A "prefix" is the part of a key
+   before the file name, and keys ending in "/" are rendered as folders in the console.
+   rm "s3://bucket/prefix" --recursive deletes every key under that prefix, not one object.
+
+ CROSS-ACCOUNT COPIES
+   A copy to another account needs a role assumption plus a bucket policy on the destination
+   before the command will work, and the storage charges land on the account that owns the bucket.
+
+
+================================================================================================
+ 4. VERIFYING A RESULT
+================================================================================================
+
+aws s3 ls s3://amz-s3-data-snow-ap-thailand/raw/orders/ --recursive --human-readable  # confirm what landed
+aws s3api head-object --bucket amz-s3-data-snow-ap-thailand --key raw/orders/order.csv  # size, type, ETag
+aws sts get-caller-identity                              # re-confirm the account after the write
