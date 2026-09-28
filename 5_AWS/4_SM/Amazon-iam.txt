@@ -1,0 +1,21 @@
+What is IAM
+------------
+	AWS Identity and Access Management (IAM) is a web service that helps you securely control access 
+	to AWS resources. With IAM, you can manage permissions that control which AWS resources 
+	users can access. You use IAM to control who is authenticated (signed in) and authorized (has 
+	permissions) to use resources. IAM provides the infrastructure necessary to control authentication 
+	and authorization for your AWS accounts.
+
+Access management
+-----------------
+	After a user is set up in IAM, they use their sign-in credentials to authenticate with AWS. 
+	Authentication is provided by matching the sign-in credentials to a principal (an IAM user, AWS 
+	STS federated principal, IAM role, or application) trusted by the AWS account. 
+	
+Hirarchy Of Acces Setup 
+-----------------------	
+Policy -> Group User -> User
+
+Note :
+		1. Least Privilege Pricipal 
+		2. We will assign only users in a Group not any other Group.	
