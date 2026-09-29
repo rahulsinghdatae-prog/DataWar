@@ -1,12 +1,8 @@
 /***************************** Parsing Json *********************/
 
-use database rahul_db;
-
-use schema public;
-
 create or replace table json_demo (v variant);
 
-select * from json_demo;
+select * from json_demo
 
 insert into json_demo
 select
@@ -82,6 +78,7 @@ parse_json(
 select v:fullName from json_demo;
 
 -- Cast name to string data type
+
 
 select v:fullName::string as full_name
 from json_demo;
