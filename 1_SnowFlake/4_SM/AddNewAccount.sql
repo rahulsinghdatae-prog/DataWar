@@ -1,6 +1,8 @@
-# SM
+create or replace database rahul_db;
 
-Place sample/scenario-based case study material (SM) for this technology here.
+create table rahul_test(
+id number, name varchar
+);
 
 /**************************************************************************/
 
@@ -72,7 +74,7 @@ create or replace storage integration AWS_S3_INTEGRATION
   type = external_stage
   storage_provider = s3
   enabled = false
-  storage_aws_role_arn = 'arn:aws:iam::<aws-account-id>:role/<role-name>'
+  storage_aws_role_arn = 'arn:aws:iam::470451076022:role/amz-EDPRP-Snowflake-S3-Role-Thailand'
   storage_allowed_locations = ('s3://amz-s3-practice-snow-data/data/');
 
 -- capture from the output:
@@ -84,6 +86,9 @@ create or replace storage integration AWS_S3_INTEGRATION
 
 DESC INTEGRATION AWS_S3_INTEGRATION;
 
+#STORAGE_AWS_IAM_USER_ARN='arn:aws:iam::556675846235:user/9kza2000-s'
+#STORAGE_AWS_ROLE_ARN='arn:aws:iam::470451076022:role/amz-EDPRP-Snowflake-S3-Role-Thailand'
+#STORAGE_AWS_EXTERNAL_ID='SZ87465_SFCRole=3_EbKoMd7gkXN1eWuFhKpXh4FTeGY='
 /**************************************************************************/
 
 --- STEP 3 (AWS): bucket policy on amz-s3-practice-snow-data.
@@ -206,3 +211,4 @@ GET @DATA_STAGE file:///tmp/;
 ---                                                not a fault
 --- stage create fails on permission            -> USAGE grant missing for
 ---                                                the executing role, STEP 5
+
